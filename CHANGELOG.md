@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 🔎 Search a place
+- **In the search (`/`)**: `@Toulouse` (or `?Toulouse`) finds a place by name (OpenStreetMap, via Photon); coordinates (`43.60, 1.44`, lat first) work as they are, next to the satellites. Picking one flies the map there and opens its passes panel, titled with the name and the coordinates.
+- **A pin** marks the place while its passes panel is open (right click too).
+- **Constellation view zoomed in on a place** (past the whole globe's framing): the ground holds still under the satellites instead of turning away.
+
 ## [0.4.0] - 2026-11-19
 
 ### 📍 Passes over a place

@@ -1,3 +1,8 @@
+import { parseLatLng, fmtLatLng, searchPlaces } from './geocode';
+
+const esc = (s: string) => s.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`);
+type Item = { id: string; name: string; altitude?: number; detail?: string }; // detail: a place's (id `place:lat,lng:name`)
+
 export interface Command {
   id: string;
   title: string;
@@ -12,8 +17,8 @@ export class CommandPalette {
   private palette: HTMLElement;
   private input: HTMLInputElement;
   private results: HTMLElement;
-  private satelliteResults: Array<{id: string, name: string, altitude?: number}> = [];
-  private filteredSatellites: Array<{id: string, name: string, altitude?: number}> = [];
+  private satelliteResults: Item[] = [];
+  private filteredSatellites: Item[] = [];
   private selectedIndex = 0;
   private isOpen = false;
   private virtualScrollOffset = 0;
@@ -29,6 +34,7 @@ export class CommandPalette {
   private getConstellations?: () => Array<{ id: string; name: string }>;
   private dbLoad?: Promise<void>; // catalogue download in flight
   private remoteTimer?: ReturnType<typeof setTimeout>;
+  private empty = ['Nothing found', '']; // what an empty list says
 
   constructor() {
     this.palette = document.getElementById('command-palette')!;
@@ -148,28 +154,36 @@ export class CommandPalette {
   private handleInput() {
     const query = this.input.value.trim();
     const lowerQuery = query.toLowerCase();
-    
-    // Filter satellites based on search query
-    if (query === '') {
-      // Show all satellites when no search query
-      this.filteredSatellites = [...this.satelliteResults];
-    } else {
-      // Search satellites
-      this.filteredSatellites = this.satelliteResults.filter(satellite => {
-        const matchesName = satellite.name.toLowerCase().includes(lowerQuery);
-        const matchesId = satellite.id.toLowerCase().includes(lowerQuery);
-        
-        return matchesName || matchesId;
-      });
-    }
-    
+    const named = query.match(/^[@?]\s*(.*)$/)?.[1]; // "@Toulouse" (or "?Toulouse"): a place by name, no satellites
+    const ll = parseLatLng(query);
+    clearTimeout(this.remoteTimer);
     this.selectedIndex = 0;
     this.virtualScrollOffset = 0;
+
+    if (named !== undefined) {
+      this.filteredSatellites = [];
+      this.empty = named.length < 2 ? ['Type a place', 'A city, a region, a landmark…'] : ['Searching places…', ''];
+      this.renderSatelliteResults();
+      if (named.length < 2) return;
+      this.remoteTimer = setTimeout(async () => {
+        const places = await searchPlaces(named).catch(() => null);
+        if (this.input.value.trim() !== query) return; // user kept typing
+        this.filteredSatellites = (places ?? []).map(p => place(p.lat, p.lng, p.name, p.detail));
+        this.empty = places ? ['No such place', 'Try another name, or lat, lng'] : ['Place search failed', 'Try again, or type lat, lng'];
+        this.renderSatelliteResults();
+      }, 300);
+      return;
+    }
+
+    // Satellites matching the query; typed coordinates first (the passes over that place)
+    this.filteredSatellites = query === '' ? [...this.satelliteResults]
+      : this.satelliteResults.filter(s => s.name.toLowerCase().includes(lowerQuery) || s.id.toLowerCase().includes(lowerQuery));
+    if (ll) this.filteredSatellites.unshift(place(ll.lat, ll.lng, fmtLatLng(ll.lat, ll.lng), 'Passes over this place'));
+    this.empty = ['Nothing found', 'A place? Type @ before it: @Toulouse'];
     this.renderSatelliteResults();
 
     // Ask Celestrak by name too (debounced) so any satellite is findable without the full catalogue
-    clearTimeout(this.remoteTimer);
-    if (query.length >= 3 && this.searchRemote) {
+    if (query.length >= 3 && !ll && this.searchRemote) {
       this.remoteTimer = setTimeout(async () => {
         const remote = await this.searchRemote!(query);
         if (this.input.value.trim() !== query) return; // user kept typing
@@ -189,10 +203,10 @@ export class CommandPalette {
       const noResults = document.createElement('div');
       noResults.className = 'command-item';
       noResults.innerHTML = `
-        <div class="command-icon">❌</div>
+        <div class="command-icon">🔎</div>
         <div class="command-text">
-          <div class="command-title">No satellites found</div>
-          <div class="command-description">Try a different search term</div>
+          <div class="command-title">${this.empty[0]}</div>
+          <div class="command-description">${this.empty[1]}</div>
         </div>
       `;
       this.results.appendChild(noResults);
@@ -220,12 +234,13 @@ export class CommandPalette {
       item.style.height = `${this.itemHeight}px`;
       
       const altitudeInfo = satellite.altitude ? ` • Alt: ${satellite.altitude.toFixed(0)}km` : '';
+      const isPlace = satellite.id.startsWith('place:');
       
       item.innerHTML = `
-        <div class="command-icon">🛰️</div>
+        <div class="command-icon">${isPlace ? '📍' : '🛰️'}</div>
         <div class="command-text">
-          <div class="command-title">${satellite.name}</div>
-          <div class="command-description">${satellite.name}${altitudeInfo}</div>
+          <div class="command-title">${esc(satellite.name)}</div>
+          <div class="command-description">${esc(isPlace ? satellite.detail || 'Passes over this place' : satellite.name + altitudeInfo)}</div>
         </div>
       `;
       
@@ -338,4 +353,8 @@ export class CommandPalette {
       canvas.setAttribute('tabindex', '0');
     }
   }
+}
+
+function place(lat: number, lng: number, name: string, detail: string): Item {
+  return { id: `place:${lat},${lng}:${name}`, name, detail };
 }

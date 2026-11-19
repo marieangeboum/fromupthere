@@ -737,11 +737,12 @@ export class DeckSatelliteTracker {
     const gmst = satellite.gstime(date);
 
     // Earth turns under a fixed (inertial) view: move the map centre west by the rotation since the last frame.
-    // On the transform itself: jumpTo would stop MapLibre's gestures (a drag or a zoom couldn't last a frame)
+    // On the transform itself: jumpTo would stop MapLibre's gestures (a drag or a zoom couldn't last a frame).
+    // Zoomed in past the globe's framing (zoom 4: on a place, flown to or zoomed), the ground holds still instead.
     let d = (gmst - this.tlGmst) * 180 / Math.PI;
     d = ((d + 540) % 360) - 180;
     this.tlGmst = gmst;
-    if (!flying && d) {
+    if (!flying && d && this.map.getZoom() <= 4.5) {
       const c = this.map.getCenter();
       (this.map as any).transform.setCenter(new LngLat(c.lng - d, c.lat));
       this.map.triggerRepaint();
@@ -2868,6 +2869,16 @@ export class DeckSatelliteTracker {
     const p = nextOverhead(sats, lat, lng, from);
     const s = p && this.satellites.get(p.id);
     return p && s ? { ...p, name: displayName(s), date: new Date(p.t) } : null;
+  }
+
+  /** Fly the camera over (lat, lng), north up. A tracked satellite stays the one on view, its camera let go. */
+  flyToPlace(lat: number, lng: number) {
+    if (!this.constellation && this.followingSatellite) this.stopFollowing();
+    this.flightUntil = performance.now() + FLY_DURATION_MS + 200;
+    this.map.flyTo({
+      center: [lng, lat], zoom: Math.max(this.map.getZoom(), 9), pitch: 0, bearing: 0,
+      padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: FLY_DURATION_MS, essential: true
+    });
   }
 
   /** The imaging constellation on view, or the tracked imager's; null when neither images */

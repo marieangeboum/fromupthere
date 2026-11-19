@@ -1,9 +1,10 @@
 // Passes over a place: a right click on the map lists when the imaging constellation on view covers it in the next
 // days (from the view's clock), and how many times. Optical imagers: daylight passes only, unless "Day only" is
 // turned off (night ones then dimmed). A click on a pass jumps the clock to 2 min before it.
-import type { Map as MapLibreMap } from 'maplibre-gl';
+import { Marker, type Map as MapLibreMap } from 'maplibre-gl';
 import type { Constellation } from '../config/satellites';
 import type { DeckSatelliteTracker } from '../deck-satellite-tracker';
+import { fmtLatLng } from '../geocode';
 
 const PERIODS = [7, 30, 90], LEAD_MS = 2 * 60e3;
 const fmtDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -12,13 +13,14 @@ type Passes = Awaited<ReturnType<DeckSatelliteTracker['passesOver']>>;
 
 export class RevisitsPanel {
   private el = document.createElement('div');
-  private site: { lat: number; lng: number } | null = null;
+  private pin = new Marker({ color: '#00d6ff' }); // the place, while the panel is open
+  private site: { lat: number; lng: number; name?: string } | null = null;
   private days = 30;
   private dayOnly = true;
   private run = 0; // a newer request supersedes a slower one still computing
   private shown: { title: string; group: Constellation; from: number; r: Passes } | null = null; // last result, for "Day only"
 
-  constructor(map: MapLibreMap, private tracker: DeckSatelliteTracker) {
+  constructor(private map: MapLibreMap, private tracker: DeckSatelliteTracker) {
     this.el.id = 'revisits';
     this.el.hidden = true;
     document.body.append(this.el);
@@ -29,23 +31,29 @@ export class RevisitsPanel {
       if (!(e.target instanceof HTMLCanvasElement)) return;
       e.preventDefault();
       const r = box.getBoundingClientRect(), ll = map.unproject([e.clientX - r.left, e.clientY - r.top]);
-      this.site = { lat: ll.lat, lng: ll.lng };
-      this.refresh();
+      this.open(ll.lat, ll.lng);
     });
     this.el.addEventListener('click', e => {
       const b = (e.target as HTMLElement).closest('button');
       if (!b) return;
-      if (b.dataset.close !== undefined) { this.el.hidden = true; this.site = null; this.run++; }
+      if (b.dataset.close !== undefined) { this.el.hidden = true; this.site = null; this.run++; this.pin.remove(); }
       else if (b.dataset.days) { this.days = +b.dataset.days; this.refresh(); }
       else if (b.dataset.dayOnly !== undefined) { this.dayOnly = !this.dayOnly; this.draw(); } // a filter: no new scan
       else if (b.dataset.t) this.tracker.setSimTime(+b.dataset.t - LEAD_MS);
     });
   }
 
+  /** The passes over (lat, lng), pinned on the map; `name`: a searched place's, before its coordinates in the title */
+  open(lat: number, lng: number, name?: string) {
+    this.site = { lat, lng, name };
+    this.pin.setLngLat([lng, lat]).addTo(this.map);
+    this.refresh();
+  }
+
   private async refresh() {
     if (!this.site) return;
-    const { lat, lng } = this.site, run = ++this.run;
-    const place = `${Math.abs(lat).toFixed(2)}°${lat < 0 ? 'S' : 'N'} ${Math.abs(lng).toFixed(2)}°${lng < 0 ? 'W' : 'E'}`;
+    const { lat, lng, name } = this.site, run = ++this.run;
+    const place = (name ? `${name.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`)} ` : '') + fmtLatLng(lat, lng); // a geocoder's name: text, not HTML
     const group = this.tracker.viewedImagers();
     this.el.hidden = false;
     this.shown = null;
