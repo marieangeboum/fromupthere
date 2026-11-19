@@ -9,6 +9,8 @@ import type { DeckSatelliteTracker } from '../deck-satellite-tracker';
 import { fmtLatLng } from '../geocode';
 import { cloudCover, cloudAt } from '../clouds';
 import { s2Scenes, sceneAt, Scene } from '../scenes';
+import { sampleArea, type AreaSample } from '../area';
+import { readAreaFile } from '../area-file';
 
 const PERIODS = [7, 30, 90], LEAD_MS = 2 * 60e3;
 const fmtDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -20,7 +22,7 @@ type Passes = Awaited<ReturnType<DeckSatelliteTracker['passesOver']>>;
 export class RevisitsPanel {
   private el = document.createElement('div');
   private pin = new Marker({ color: '#00d6ff' }); // the place, while the panel is open
-  private site: { lat: number; lng: number; name?: string } | null = null;
+  private site: { lat: number; lng: number; name?: string; area?: AreaSample } | null = null;
   private days = 30;
   private dayOnly = true;
   private run = 0; // a newer request supersedes a slower one still computing
@@ -39,10 +41,18 @@ export class RevisitsPanel {
       const r = box.getBoundingClientRect(), ll = map.unproject([e.clientX - r.left, e.clientY - r.top]);
       this.open(ll.lat, ll.lng);
     });
+    // A GeoJSON dropped on the map: its area, drawn, and the passes over it
+    box.addEventListener('dragover', e => { if (e.dataTransfer?.types.includes('Files')) e.preventDefault(); });
+    box.addEventListener('drop', async e => {
+      const file = e.dataTransfer?.files[0];
+      if (!file) return;
+      e.preventDefault();
+      try { this.openArea(await readAreaFile(file)); } catch (err) { this.notice((err as Error).message); }
+    });
     this.el.addEventListener('click', e => {
       const b = (e.target as HTMLElement).closest('button');
       if (!b) return;
-      if (b.dataset.close !== undefined) { this.el.hidden = true; this.site = null; this.run++; this.pin.remove(); }
+      if (b.dataset.close !== undefined) { this.el.hidden = true; this.site = null; this.run++; this.pin.remove(); this.drawArea(null); }
       else if (b.dataset.days) { this.days = +b.dataset.days; this.refresh(); }
       else if (b.dataset.dayOnly !== undefined) { this.dayOnly = !this.dayOnly; this.draw(); } // a filter: no new scan
       else if (b.dataset.t) this.tracker.setSimTime(+b.dataset.t - LEAD_MS);
@@ -53,12 +63,41 @@ export class RevisitsPanel {
   open(lat: number, lng: number, name?: string) {
     this.site = { lat, lng, name };
     this.pin.setLngLat([lng, lat]).addTo(this.map);
+    this.drawArea(null);
     this.refresh();
+  }
+
+  /** The passes over an area (a dropped file's polygons): drawn on the map, flown to, its share under each pass */
+  openArea({ name, polygons }: { name: string; polygons: number[][][][] }) {
+    const area = sampleArea(polygons), [lng, lat] = area.centre;
+    this.site = { lat, lng, name, area };
+    this.pin.remove();
+    this.drawArea(polygons);
+    // Frame it: its diameter over ~1/3 of the view's width (zoom 0: 512 px for the Earth's 40 075 km)
+    const fit = Math.log2((40075 * Math.cos(lat * Math.PI / 180) * this.map.getContainer().clientWidth) / (512 * 6 * Math.max(area.radiusKm, 0.05)));
+    this.tracker.flyToPlace(lat, lng, Math.min(16, Math.max(3, fit)));
+    this.refresh();
+  }
+
+  private drawArea(polygons: number[][][][] | null) {
+    const data = { type: 'Feature' as const, properties: {}, geometry: { type: 'MultiPolygon' as const, coordinates: polygons ?? [] } };
+    const src = this.map.getSource('revisits-area') as import('maplibre-gl').GeoJSONSource | undefined;
+    if (src) { src.setData(data); return; }
+    if (!polygons) return;
+    this.map.addSource('revisits-area', { type: 'geojson', data });
+    this.map.addLayer({ id: 'revisits-area-fill', type: 'fill', source: 'revisits-area', paint: { 'fill-color': '#00d6ff', 'fill-opacity': 0.15 } });
+    this.map.addLayer({ id: 'revisits-area-line', type: 'line', source: 'revisits-area', paint: { 'line-color': '#00d6ff', 'line-width': 2 } });
+  }
+
+  private notice(text: string) { // a file that isn't an area: say why, in the panel
+    this.el.hidden = false;
+    this.el.innerHTML = `<div class="rv-head"><span>Area</span><button type="button" data-close aria-label="Close">×</button></div>`
+      + `<p class="rv-note">${text.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`)}</p>`;
   }
 
   private async refresh() {
     if (!this.site) return;
-    const { lat, lng, name } = this.site, run = ++this.run;
+    const { lat, lng, name, area } = this.site, run = ++this.run;
     const place = (name ? `${name.replace(/[&<>"]/g, c => `&#${c.charCodeAt(0)};`)} ` : '') + fmtLatLng(lat, lng); // a geocoder's name: text, not HTML
     const group = this.tracker.viewedImagers();
     this.el.hidden = false;
@@ -78,7 +117,7 @@ export class RevisitsPanel {
     const scenes = group.id === 'sentinel-2' && from < Date.now() // its images so far
       ? s2Scenes(lat, lng, from, Math.min(Date.now(), to)).catch(() => null) : Promise.resolve(null);
     try {
-      const r = await this.tracker.passesOver(group.id, lat, lng, this.days, from);
+      const r = await this.tracker.passesOver(group.id, lat, lng, this.days, from, area);
       const [c, s] = await Promise.all([clouds, scenes]);
       if (run !== this.run) return;
       this.shown = { title, group, from, r, clouds: c, scenes: s };
@@ -102,7 +141,8 @@ export class RevisitsPanel {
       + `<span>${fmtDay.format(p.date)}</span><span>${fmtTime.format(p.date)}</span>`
       + `<span>${p.name.replace(`${group.name} `, '')}</span>` // the group is in the title
       + `<span>${scenes && p.t < now ? image(sceneAt(scenes, p.id, p.t)) : cloud(cloudAt(clouds, p.t))}</span>`
-      + `<span>${Math.round(p.distKm)} km</span></button>`).join('');
+      + ('share' in p ? `<span title="Share of the area under the swath">${p.share === 1 ? 'all' : `${Math.max(1, Math.round((p.share as number) * 100))}% in`}</span>` // an area
+        : `<span>${Math.round(p.distKm)} km</span>`) + '</button>').join('');
     this.render(title, head + `<div class="rv-list">${rows}</div>`, !group.night);
   }
 

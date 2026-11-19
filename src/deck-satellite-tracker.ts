@@ -17,6 +17,7 @@ import { SmoothTracker, PredictivePosition, predictPosition } from './smooth-tra
 import { prefetchAround } from './tile-prefetch';
 import { stripCells, coveredShare } from './coverage';
 import { nextOverhead, passesOver } from './next-overhead';
+import { areaPassesOver, type AreaSample } from './area';
 import { HorizonExtension } from './horizon-extension';
 import { SmoothCamera, framing } from './smooth-camera';
 
@@ -2872,11 +2873,11 @@ export class DeckSatelliteTracker {
   }
 
   /** Fly the camera over (lat, lng), north up. A tracked satellite stays the one on view, its camera let go. */
-  flyToPlace(lat: number, lng: number) {
+  flyToPlace(lat: number, lng: number, zoom = Math.max(this.map.getZoom(), 9)) { // zoom: an area's, to frame it
     if (!this.constellation && this.followingSatellite) this.stopFollowing();
     this.flightUntil = performance.now() + FLY_DURATION_MS + 200;
     this.map.flyTo({
-      center: [lng, lat], zoom: Math.max(this.map.getZoom(), 9), pitch: 0, bearing: 0,
+      center: [lng, lat], zoom, pitch: 0, bearing: 0,
       padding: { top: 0, bottom: 0, left: 0, right: 0 }, duration: FLY_DURATION_MS, essential: true
     });
   }
@@ -2890,14 +2891,16 @@ export class DeckSatelliteTracker {
   /** A constellation's passes over (lat, lng) in the `days` from `from`, each with `lit`: it can image the place then
    * (optical: the sun at least MIN_SUN_ELEV_DEG high there; SAR and thermal: always). `count`: the lit ones.
    * Console: `await satelliteTracker.passesOver('edc', 43.60, 1.44, 30)` */
-  async passesOver(constellationId: string, lat: number, lng: number, days = 30, from = Date.now()) {
+  // `area`: passes over that area instead, each with `share`, the part of it under the swath
+  async passesOver(constellationId: string, lat: number, lng: number, days = 30, from = Date.now(), area?: AreaSample) {
     const group = CONSTELLATIONS.find(c => c.id === constellationId);
     if (!group?.swathKm) throw new Error(`Not an imaging constellation: ${constellationId}`);
     const sats = (await this.constellationMembers(group)).flatMap(id => {
       const s = this.satellites.get(id);
       return s ? [{ id, tle1: s.tle1, tle2: s.tle2, halfKm: group.swathKm / 2 }] : [];
     });
-    const passes = passesOver(sats, lat, lng, from, from + days * 86400e3).map(p => ({
+    const to = from + days * 86400e3; // an area: passes whose swath touches it, each with its share (lat, lng: its centre)
+    const passes = (area ? areaPassesOver(sats, area, from, to) : passesOver(sats, lat, lng, from, to)).map(p => ({
       ...p, name: displayName(this.satellites.get(p.id)!), date: new Date(p.t),
       lit: !!group.night || SolarCalculator.calculateSolarElevation(lat, lng, new Date(p.t)) >= MIN_SUN_ELEV_DEG
     }));

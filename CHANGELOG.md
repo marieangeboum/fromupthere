@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A pin** marks the place while its passes panel is open (right click too).
 - **Constellation view zoomed in on a place** (past the whole globe's framing): the ground holds still under the satellites instead of turning away.
 
+### 🗺️ Passes over an area
+- **Drop a GeoJSON on the map** (`.geojson` / `.json`, WGS 84): its polygons (holes too, all of a file's as one area: a trial's plots, say) are drawn and flown to, and the passes panel opens over them. A pass counts when its swath touches the area; instead of the distance, each row gives how much of the area is under it (`all`, `31% in`). Clouds are taken at the area's centre. A file without polygons, or in another CRS, says so in the panel.
+- **How**: the area is sampled (up to ~300 points inside it, or its corners and centre when it's smaller than a grid cell); candidates are the passes over its centre with the swath widened by its radius, then each point is checked against the ground track. `scripts/area-passes-check.ts` compares it with per-point scans: same passes, shares within 2 %.
+
 ### ☁️ Clouds on each pass
 - **Cloud cover at that hour**: each pass in the right-click panel shows the cloud cover over the place at its hour, from Open-Meteo's weather models (free, no key): their analysis for about the last two months, their forecast for the next 16 days, a dash beyond. A model's cloud cover over the place, not the one in an image.
 - **Sentinel-2's own images**: for its passes before now, the panel shows the image's own `eo:cloud_cover` instead, in bold, from Element 84's Earth Search STAC (public, no key), or "none" when no image was taken. That share is over the whole 110 km tile, not the place; where the place lies in two tiles, the clearer one counts. Over Toulouse from 20 Oct to 19 Nov 2026: 9 daylight passes, 9 images, each found.
