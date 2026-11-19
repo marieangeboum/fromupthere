@@ -57,3 +57,15 @@ export function nextOverhead(sats: OverheadSat[], lat: number, lng: number, from
 export function passesOver(sats: OverheadSat[], lat: number, lng: number, from: number, to: number): OverheadPass[] {
   return sats.flatMap(s => [...passes(s, lat, lng, from, to)]).sort((a, b) => a.t - b.t);
 }
+
+/** A satellite's ground track ([lng, lat] degrees) from t0 to t1, a point every stepMs; empty past a decayed TLE. */
+export function groundTrack(s: OverheadSat, t0: number, t1: number, stepMs: number): number[][] {
+  const rec = satellite.twoline2satrec(s.tle1, s.tle2), out: number[][] = [];
+  for (let t = t0; t <= t1; t += stepMs) {
+    const pv = satellite.propagate(rec, new Date(t));
+    if (!pv || typeof pv.position === 'boolean' || !pv.position) return [];
+    const g = satellite.eciToGeodetic(pv.position, satellite.gstime(new Date(t)));
+    out.push([g.longitude / rad, g.latitude / rad]);
+  }
+  return out;
+}
