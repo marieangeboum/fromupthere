@@ -2881,8 +2881,8 @@ export class DeckSatelliteTracker {
     return this.constellation ? this.tlSim : this.simNow();
   }
 
-  /** A constellation's passes over (lat, lng) in the `days` from `from`: those it can image (optical: sun at least
-   * MIN_SUN_ELEV_DEG high there), and how many it would make without that cut.
+  /** A constellation's passes over (lat, lng) in the `days` from `from`, each with `lit`: it can image the place then
+   * (optical: the sun at least MIN_SUN_ELEV_DEG high there; SAR and thermal: always). `count`: the lit ones.
    * Console: `await satelliteTracker.passesOver('edc', 43.60, 1.44, 30)` */
   async passesOver(constellationId: string, lat: number, lng: number, days = 30, from = Date.now()) {
     const group = CONSTELLATIONS.find(c => c.id === constellationId);
@@ -2891,11 +2891,11 @@ export class DeckSatelliteTracker {
       const s = this.satellites.get(id);
       return s ? [{ id, tle1: s.tle1, tle2: s.tle2, halfKm: group.swathKm / 2 }] : [];
     });
-    const all = passesOver(sats, lat, lng, from, from + days * 86400e3);
-    const passes = all
-      .filter(p => group.night || SolarCalculator.calculateSolarElevation(lat, lng, new Date(p.t)) >= MIN_SUN_ELEV_DEG)
-      .map(p => ({ ...p, name: displayName(this.satellites.get(p.id)!), date: new Date(p.t) }));
-    return { constellation: group.name, count: passes.length, countDayAndNight: all.length, passes };
+    const passes = passesOver(sats, lat, lng, from, from + days * 86400e3).map(p => ({
+      ...p, name: displayName(this.satellites.get(p.id)!), date: new Date(p.t),
+      lit: !!group.night || SolarCalculator.calculateSolarElevation(lat, lng, new Date(p.t)) >= MIN_SUN_ELEV_DEG
+    }));
+    return { constellation: group.name, count: passes.filter(p => p.lit).length, countDayAndNight: passes.length, passes };
   }
 
   getSmoothCamera(): SmoothCamera {

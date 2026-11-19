@@ -12,6 +12,7 @@
 #revisits .rv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
 #revisits .rv-head button { font-size: 18px; line-height: 1; padding: 0 4px; color: #9a9a9a; }
 #revisits .rv-periods { display: flex; gap: 2px; }
+#revisits .rv-periods [data-day-only] { margin-left: auto; }
 #revisits .rv-periods button { padding: 2px 6px; color: #9a9a9a; font-variant-numeric: tabular-nums; }
 #revisits .rv-periods button:hover, #revisits .rv-head button:hover { color: #fff; }
 #revisits .rv-periods button[aria-pressed="true"] { color: #fff; font-weight: 600; text-decoration: underline 2px; text-underline-offset: 5px; }
@@ -25,3 +26,4 @@
 }
 #revisits .rv-list button:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
 #revisits .rv-list button span:last-child { color: #8a8a8a; text-align: right; }
+#revisits .rv-list button.rv-night { color: #666; }
