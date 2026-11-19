@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-19
+
 ### 📍 Passes over a place
 - **Right click on the map**: a panel, bottom left, lists when the imaging constellation on view (or the tracked imager's) covers that place in the next 7, 30 or 90 days from the view's clock: day, time (UTC), satellite and distance from its ground track. On top, how many passes on how many days ("29 daylight passes on 23 days in 30 days"), and for optical imagers the count day and night too. **Day only** (on by default, optical imagers) lists the daylight passes; off, the night ones show too, dimmed (Sentinel-2 at night images nothing). A click on a pass jumps the clock to 2 min before it.
 - **Coverage model**: the coverage view's: a nadir swath, clouds ignored; optical imagers count only when the sun is at least 10° up there, SAR and thermal ones always. Off-nadir pointing (Pléiades, WorldView, SkySat…) isn't modelled, so those are undercounted.
