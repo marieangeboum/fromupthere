@@ -20,3 +20,24 @@ export function parseLatLng(q: string): { lat: number; lng: number } | null {
 /** "43.60°N 1.44°E" */
 export const formatLatLng = (lat: number, lng: number) =>
   `${Math.abs(lat).toFixed(2)}°${lat < 0 ? 'S' : 'N'} ${Math.abs(lng).toFixed(2)}°${lng < 0 ? 'W' : 'E'}`;
+
+// Place names: Photon, komoot's geocoder over OpenStreetMap (free, no key, CORS). Towns, and also points of interest
+// such as research stations ("INRAE Auzeville", "Agroscope Changins"), which an imaging site often is.
+const PHOTON = 'https://photon.komoot.io/api/?limit=5&lang=en&q=';
+
+// OpenStreetMap's names go into HTML: escaped
+const esc = (t: string) => t.replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
+
+export interface Place { name: string; detail: string; lat: number; lng: number }
+
+/** Up to five places named like q, best first; name and detail HTML-escaped. */
+export async function searchPlaces(q: string): Promise<Place[]> {
+  const r = await fetch(PHOTON + encodeURIComponent(q));
+  if (!r.ok) throw new Error(`Photon ${r.status}`);
+  const d: { features: Array<{ geometry: { coordinates: [number, number] }; properties: Record<string, string | undefined> }> } = await r.json();
+  return d.features.map(({ geometry: { coordinates: [lng, lat] }, properties: p }) => {
+    const where = [p.city !== p.name ? p.city : undefined, p.state, p.country].filter(Boolean).join(', ');
+    const kind = (p.osm_value ?? '').replace(/_/g, ' ');
+    return { name: esc(p.name ?? formatLatLng(lat, lng)), detail: esc([kind, where].filter(Boolean).join(' · ')), lat, lng };
+  });
+}

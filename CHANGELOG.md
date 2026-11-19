@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🔎 Places in the search
 - **Coordinates**: typing them in the search (`/`) offers "📍 43.61°N 3.97°E · Passes over this place" first; Enter opens the passes panel there, as a right click would. Written as people write them: `43.61, 3.97`, `43.61 3.97`, `43.61°N 3.97°E`, `3.97°E 43.61°N` (letters fix the order), `-33.92, 18.42`; without letters, latitude first. `scripts/places-check.ts` checks what is read and what isn't.
+- **Place names**: from 3 letters, the search also lists up to five places by name after the satellites ("📍 INRAE Auzeville · research institute · Auzeville-Tolosane, Occitania, France"), from Photon, komoot's geocoder over OpenStreetMap (no key; one request 400 ms after the last key). Towns, and points of interest such as research stations, which an imaging site often is.
 
 ## [0.4.0] - 2026-11-19
 

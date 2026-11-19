@@ -1,4 +1,4 @@
-import { parseLatLng, formatLatLng } from './places';
+import { parseLatLng, formatLatLng, searchPlaces } from './places';
 
 export interface Command {
   id: string;
@@ -15,7 +15,7 @@ export class CommandPalette {
   private input: HTMLInputElement;
   private results: HTMLElement;
   private satelliteResults: Array<{id: string, name: string, altitude?: number}> = [];
-  private filteredSatellites: Array<{id: string, name: string, altitude?: number}> = [];
+  private filteredSatellites: Array<{id: string, name: string, altitude?: number, detail?: string}> = []; // detail: a place's
   private selectedIndex = 0;
   private isOpen = false;
   private virtualScrollOffset = 0;
@@ -31,6 +31,7 @@ export class CommandPalette {
   private getConstellations?: () => Array<{ id: string; name: string }>;
   private dbLoad?: Promise<void>; // catalogue download in flight
   private remoteTimer?: ReturnType<typeof setTimeout>;
+  private placeTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
     this.palette = document.getElementById('command-palette')!;
@@ -173,6 +174,18 @@ export class CommandPalette {
     this.virtualScrollOffset = 0;
     this.renderSatelliteResults();
 
+    // Places by name (debounced, after the satellites): coordinates already gave theirs
+    clearTimeout(this.placeTimer);
+    if (query.length >= 3 && !at) {
+      this.placeTimer = setTimeout(async () => {
+        const places = await searchPlaces(query).catch(() => []);
+        if (this.input.value.trim() !== query || places.length === 0) return; // user kept typing
+        this.filteredSatellites = [...this.filteredSatellites,
+          ...places.map(p => ({ id: `place:${p.lat},${p.lng}`, name: p.name, detail: p.detail }))];
+        this.renderSatelliteResults();
+      }, 400);
+    }
+
     // Ask Celestrak by name too (debounced) so any satellite is findable without the full catalogue
     clearTimeout(this.remoteTimer);
     if (query.length >= 3 && this.searchRemote) {
@@ -232,7 +245,7 @@ export class CommandPalette {
         <div class="command-icon">${place ? '📍' : '🛰️'}</div>
         <div class="command-text">
           <div class="command-title">${satellite.name}</div>
-          <div class="command-description">${place ? 'Passes over this place' : `${satellite.name}${altitudeInfo}`}</div>
+          <div class="command-description">${place ? `${satellite.detail ? `${satellite.detail} · ` : ''}Passes over this place` : `${satellite.name}${altitudeInfo}`}</div>
         </div>
       `;
       
