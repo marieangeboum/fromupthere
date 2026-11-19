@@ -1,4 +1,4 @@
-import { addProtocol, LightSpecification, Map as MapLibreMap, RasterTileSource } from 'maplibre-gl';
+import { addProtocol, LightSpecification, Map as MapLibreMap, RasterLayerSpecification, RasterTileSource } from 'maplibre-gl';
 import { SolarCalculator } from './utils/solar-calculator';
 
 // Day/night as ONE continuous globe: NASA VIIRS city lights are faded in over the day imagery by the sun's elevation
@@ -146,7 +146,8 @@ export function installNightShading(map: MapLibreMap, beforeLayerId?: string) {
     map.addLayer({
       id, type: 'raster', source: id,
       // no opacity transition: a cross-fade puts both buffers near 0.5 mid-swap, so the day imagery flashes through the night side
-      paint: { 'raster-opacity': i === front ? 1 : 0, 'raster-opacity-transition': { duration: 0, delay: 0 }, 'raster-fade-duration': 0 }
+      // (maplibre's types leave out the `-transition` keys the style spec allows, hence the cast)
+      paint: { 'raster-opacity': i === front ? 1 : 0, 'raster-opacity-transition': { duration: 0, delay: 0 }, 'raster-fade-duration': 0 } as RasterLayerSpecification['paint']
     }, beforeLayerId);
   });
   map.setLight(sunLight(applied));

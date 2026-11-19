@@ -1,0 +1,29 @@
+/* Passes over a place (right click on the map): a frosted panel bottom left, like the toasts */
+#revisits {
+  position: fixed; left: 16px; bottom: 40px; z-index: 1500;
+  width: min(340px, calc(100vw - 32px)); max-height: min(60vh, 520px);
+  display: flex; flex-direction: column; gap: 6px; padding: 10px 12px;
+  font: 13px/1.4 Inter, sans-serif; color: #ddd;
+  background: rgba(10, 14, 20, 0.8); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+#revisits[hidden] { display: none; }
+#revisits button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+#revisits .rv-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 600; color: #fff; }
+#revisits .rv-head button { font-size: 18px; line-height: 1; padding: 0 4px; color: #9a9a9a; }
+#revisits .rv-periods { display: flex; gap: 2px; }
+#revisits .rv-periods [data-day-only] { margin-left: auto; }
+#revisits .rv-periods button { padding: 2px 6px; color: #9a9a9a; font-variant-numeric: tabular-nums; }
+#revisits .rv-periods button:hover, #revisits .rv-head button:hover { color: #fff; }
+#revisits .rv-periods button[aria-pressed="true"] { color: #fff; font-weight: 600; text-decoration: underline 2px; text-underline-offset: 5px; }
+#revisits p { margin: 0; }
+#revisits .rv-count b { color: #fff; }
+#revisits .rv-count span, #revisits .rv-note { color: #8a8a8a; font-size: 12px; }
+#revisits .rv-list { overflow-y: auto; min-height: 0; }
+#revisits .rv-list button {
+  display: grid; grid-template-columns: 4.5em 3.5em 1fr auto; gap: 8px; width: 100%; padding: 3px 4px;
+  text-align: left; border-radius: 4px; font-variant-numeric: tabular-nums;
+}
+#revisits .rv-list button:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+#revisits .rv-list button span:last-child { color: #8a8a8a; text-align: right; }
+#revisits .rv-list button.rv-night { color: #666; }

@@ -12,6 +12,7 @@
 @import './components/search.css';
 @import './components/filters.css';
 @import './components/command-palette.css';
+@import './components/revisits.css';
 /* Settings panel ("?"), a native <dialog> */
 #settings {
   padding: 0;

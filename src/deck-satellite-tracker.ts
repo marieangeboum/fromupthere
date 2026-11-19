@@ -3,7 +3,7 @@ import { MapboxOverlay } from '@deck.gl/mapbox';
 import { ScatterplotLayer, IconLayer, ArcLayer, TextLayer, LineLayer, SolidPolygonLayer, PathLayer } from '@deck.gl/layers';
 import { Map as MapLibreMap, LngLat } from 'maplibre-gl';
 import * as satellite from 'satellite.js';
-import { SATELLITE_CONFIGS_WITH_STARLINK, Constellation, constellationOf } from './config/satellites';
+import { SATELLITE_CONFIGS_WITH_STARLINK, CONSTELLATIONS, Constellation, constellationOf } from './config/satellites';
 import type { SatelliteConfig } from './types/satellite';
 import { displayName } from './types/satellite';
 import { DataFilterExtension, DataFilterExtensionProps } from '@deck.gl/extensions';
@@ -16,7 +16,7 @@ import { OrbitalInterpolator, SatellitePosition } from './orbital-interpolator';
 import { SmoothTracker, PredictivePosition, predictPosition } from './smooth-tracker';
 import { prefetchAround } from './tile-prefetch';
 import { stripCells, coveredShare } from './coverage';
-import { nextOverhead } from './next-overhead';
+import { nextOverhead, passesOver } from './next-overhead';
 import { HorizonExtension } from './horizon-extension';
 import { SmoothCamera, framing } from './smooth-camera';
 
@@ -2868,6 +2868,29 @@ export class DeckSatelliteTracker {
     const p = nextOverhead(sats, lat, lng, from);
     const s = p && this.satellites.get(p.id);
     return p && s ? { ...p, name: displayName(s), date: new Date(p.t) } : null;
+  }
+
+  /** The imaging constellation on view, or the tracked imager's; null when neither images */
+  viewedImagers(): Constellation | null {
+    const group = this.constellation ? CONSTELLATIONS.find(c => c.name === this.constellationName) : constellationOf(this.followingSatellite);
+    return group?.swathKm ? group : null;
+  }
+
+  /** A constellation's passes over (lat, lng) in the `days` from `from`, each with `lit`: it can image the place then
+   * (optical: the sun at least MIN_SUN_ELEV_DEG high there; SAR and thermal: always). `count`: the lit ones.
+   * Console: `await satelliteTracker.passesOver('edc', 43.60, 1.44, 30)` */
+  async passesOver(constellationId: string, lat: number, lng: number, days = 30, from = Date.now()) {
+    const group = CONSTELLATIONS.find(c => c.id === constellationId);
+    if (!group?.swathKm) throw new Error(`Not an imaging constellation: ${constellationId}`);
+    const sats = (await this.constellationMembers(group)).flatMap(id => {
+      const s = this.satellites.get(id);
+      return s ? [{ id, tle1: s.tle1, tle2: s.tle2, halfKm: group.swathKm / 2 }] : [];
+    });
+    const passes = passesOver(sats, lat, lng, from, from + days * 86400e3).map(p => ({
+      ...p, name: displayName(this.satellites.get(p.id)!), date: new Date(p.t),
+      lit: !!group.night || SolarCalculator.calculateSolarElevation(lat, lng, new Date(p.t)) >= MIN_SUN_ELEV_DEG
+    }));
+    return { constellation: group.name, count: passes.filter(p => p.lit).length, countDayAndNight: passes.length, passes };
   }
 
   getSmoothCamera(): SmoothCamera {

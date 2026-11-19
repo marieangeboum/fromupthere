@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📍 Passes over a place
+- **Right click on the map**: a panel, bottom left, lists when the imaging constellation on view (or the tracked imager's) covers that place in the next 7, 30 or 90 days from the view's clock: day, time (UTC), satellite and distance from its ground track. On top, how many passes on how many days ("29 daylight passes on 23 days in 30 days"), and for optical imagers the count day and night too. **Day only** (on by default, optical imagers) lists the daylight passes; off, the night ones show too, dimmed (Sentinel-2 at night images nothing). A click on a pass jumps the clock to 2 min before it.
+- **Coverage model**: the coverage view's: a nadir swath, clouds ignored; optical imagers count only when the sun is at least 10° up there, SAR and thermal ones always. Off-nadir pointing (Pléiades, WorldView, SkySat…) isn't modelled, so those are undercounted.
+- **Console**: `await satelliteTracker.passesOver('edc', 43.60, 1.44, 30)`. The scan jumps ahead while a satellite is far from the place: 30 days of EarthDaily over Toulouse take ~0.2 s, of Planet's 102 SuperDoves ~2 s (~6 s for 90 days, on the main thread); `scripts/passes-over-check.ts` checks it against a brute-force 5 s scan.
+
 ### ⏱️ Time bar
 - **The clock**: `● 17:47 UTC`; off live, how far from now after it (`17:47 UTC +1 min`, `−3 d 4 h`), the day only when it isn't today. The dot before it is red at live (now, real time), a grey ring otherwise: a click goes back to live.
 - **Speed as a sign**: ▶ real time, ▶▶ faster, ❚❚ paused. Three speeds: Real time, 10× and 100× (300× is gone; old links fall back to 10×). **10× is the default everywhere**, tracking too; the speed setting is gone.
