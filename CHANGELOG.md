@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sentinel-2's own images**: for its passes before now, the panel shows the image's own `eo:cloud_cover` instead, in bold, from Element 84's Earth Search STAC (public, no key), or "none" when no image was taken. That share is over the whole 110 km tile, not the place; where the place lies in two tiles, the clearer one counts. Over Toulouse from 20 Oct to 19 Nov 2026: 9 daylight passes, 9 images, each found.
 - One request per place for each source; if one fails, the passes still show, without its clouds.
 
+### 🔎 Places in the search
+- **Coordinates**: typing them in the search (`/`) offers "📍 43.61°N 3.97°E · Passes over this place" first; Enter opens the passes panel there, as a right click would. Written as people write them: `43.61, 3.97`, `43.61 3.97`, `43.61°N 3.97°E`, `3.97°E 43.61°N` (letters fix the order), `-33.92, 18.42`; without letters, latitude first. `scripts/places-check.ts` checks what is read and what isn't.
+
 ## [0.4.0] - 2026-11-19
 
 ### 📍 Passes over a place

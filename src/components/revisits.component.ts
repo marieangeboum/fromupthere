@@ -1,4 +1,4 @@
-// Passes over a place: a right click on the map lists when the imaging constellation on view covers it in the next
+// Passes over a place: a right click on the map (or coordinates typed in the search) lists when the imaging constellation on view covers it in the next
 // days (from the view's clock), and how many times. Optical imagers: daylight passes only, unless "Day only" is
 // turned off (night ones then dimmed). Each pass shows the cloud cover there at that hour (Open-Meteo's models, where
 // they reach: ~2 months back, 16 days ahead); Sentinel-2's past passes show their image's own instead (Earth Search),
@@ -8,6 +8,7 @@ import type { Constellation } from '../config/satellites';
 import type { DeckSatelliteTracker } from '../deck-satellite-tracker';
 import { cloudCover, cloudAt } from '../clouds';
 import { s2Scenes, sceneAt, Scene } from '../scenes';
+import { formatLatLng } from '../places';
 
 const PERIODS = [7, 30, 90], LEAD_MS = 2 * 60e3;
 const fmtDay = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -35,8 +36,7 @@ export class RevisitsPanel {
       if (!(e.target instanceof HTMLCanvasElement)) return;
       e.preventDefault();
       const r = box.getBoundingClientRect(), ll = map.unproject([e.clientX - r.left, e.clientY - r.top]);
-      this.site = { lat: ll.lat, lng: ll.lng };
-      this.refresh();
+      this.openAt(ll.lat, ll.lng);
     });
     this.el.addEventListener('click', e => {
       const b = (e.target as HTMLElement).closest('button');
@@ -48,10 +48,16 @@ export class RevisitsPanel {
     });
   }
 
+  /** The passes over (lat, lng): from a right click, or coordinates typed in the search */
+  openAt(lat: number, lng: number) {
+    this.site = { lat, lng };
+    this.refresh();
+  }
+
   private async refresh() {
     if (!this.site) return;
     const { lat, lng } = this.site, run = ++this.run;
-    const place = `${Math.abs(lat).toFixed(2)}°${lat < 0 ? 'S' : 'N'} ${Math.abs(lng).toFixed(2)}°${lng < 0 ? 'W' : 'E'}`;
+    const place = formatLatLng(lat, lng);
     const group = this.tracker.viewedImagers();
     this.el.hidden = false;
     this.shown = null;

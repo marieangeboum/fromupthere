@@ -22,6 +22,7 @@ class SatelliteTracker3D {
   private isGlobeMode = true; // Start with globe projection
   private urlState = new URLState();
   private commandPalette!: CommandPalette;
+  private revisits!: RevisitsPanel;
   private nightShading?: ReturnType<typeof installNightShading>;
   private opening = false; // a satellite to land on: the opening first (opening.ts)
   private openingUnderway = false; // its orbit came, the opening runs (it ends the opening itself)
@@ -51,7 +52,7 @@ class SatelliteTracker3D {
     this.setupCommandPalette();
     this.setupSearchComponent();
     this.setupCockpitComponent();
-    new RevisitsPanel(this.map, this.satelliteTracker); // right click on the map: passes over that place
+    this.revisits = new RevisitsPanel(this.map, this.satelliteTracker); // right click on the map: passes over that place
     this.startTracking();
     
     // Temporary debugging - expose tracker to console
@@ -791,6 +792,11 @@ class SatelliteTracker3D {
     // Set up command palette callbacks
     this.commandPalette.setCallbacks({
       onTrackSatellite: async (satelliteId: string) => {
+        if (satelliteId.startsWith('place:')) { // typed coordinates
+          const [lat, lng] = satelliteId.slice(6).split(',').map(Number);
+          this.revisits.openAt(lat, lng);
+          return;
+        }
         if (satelliteId.startsWith('group:')) {
           const group = CONSTELLATIONS.find(g => g.id === satelliteId.slice(6));
           if (group) await this.openConstellation(group, true);

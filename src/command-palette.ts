@@ -1,3 +1,5 @@
+import { parseLatLng, formatLatLng } from './places';
+
 export interface Command {
   id: string;
   title: string;
@@ -163,6 +165,10 @@ export class CommandPalette {
       });
     }
     
+    // Coordinates: the passes over that place first (ids "place:lat,lng", like "group:…" for constellations)
+    const at = parseLatLng(query);
+    if (at) this.filteredSatellites.unshift({ id: `place:${at.lat},${at.lng}`, name: formatLatLng(at.lat, at.lng) });
+
     this.selectedIndex = 0;
     this.virtualScrollOffset = 0;
     this.renderSatelliteResults();
@@ -220,12 +226,13 @@ export class CommandPalette {
       item.style.height = `${this.itemHeight}px`;
       
       const altitudeInfo = satellite.altitude ? ` • Alt: ${satellite.altitude.toFixed(0)}km` : '';
+      const place = satellite.id.startsWith('place:');
       
       item.innerHTML = `
-        <div class="command-icon">🛰️</div>
+        <div class="command-icon">${place ? '📍' : '🛰️'}</div>
         <div class="command-text">
           <div class="command-title">${satellite.name}</div>
-          <div class="command-description">${satellite.name}${altitudeInfo}</div>
+          <div class="command-description">${place ? 'Passes over this place' : `${satellite.name}${altitudeInfo}`}</div>
         </div>
       `;
       
