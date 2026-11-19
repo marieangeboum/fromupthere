@@ -2876,11 +2876,6 @@ export class DeckSatelliteTracker {
     return group?.swathKm ? group : null;
   }
 
-  /** The current view's clock (ms): the time-lapse's in a constellation view, the tracking one's otherwise */
-  viewNow(): number {
-    return this.constellation ? this.tlSim : this.simNow();
-  }
-
   /** A constellation's passes over (lat, lng) in the `days` from `from`, each with `lit`: it can image the place then
    * (optical: the sun at least MIN_SUN_ELEV_DEG high there; SAR and thermal: always). `count`: the lit ones.
    * Console: `await satelliteTracker.passesOver('edc', 43.60, 1.44, 30)` */
