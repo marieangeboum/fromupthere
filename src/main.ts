@@ -10,6 +10,7 @@ import { installSettings, SPEEDS, DEFAULT_SPEED } from './settings';
 import { CONSTELLATIONS, Constellation, constellationOf } from './config/satellites';
 import { SearchComponent } from './components/search.component';
 import { CockpitComponent } from './components/cockpit.component';
+import { RevisitsPanel } from './components/revisits.component';
 import { displayName } from './types/satellite';
 import { SEOManager } from './seo-manager';
 
@@ -50,6 +51,7 @@ class SatelliteTracker3D {
     this.setupCommandPalette();
     this.setupSearchComponent();
     this.setupCockpitComponent();
+    new RevisitsPanel(this.map, this.satelliteTracker); // right click on the map: passes over that place
     this.startTracking();
     
     // Temporary debugging - expose tracker to console

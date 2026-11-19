@@ -2870,6 +2870,17 @@ export class DeckSatelliteTracker {
     return p && s ? { ...p, name: displayName(s), date: new Date(p.t) } : null;
   }
 
+  /** The imaging constellation on view, or the tracked imager's; null when neither images */
+  viewedImagers(): Constellation | null {
+    const group = this.constellation ? CONSTELLATIONS.find(c => c.name === this.constellationName) : constellationOf(this.followingSatellite);
+    return group?.swathKm ? group : null;
+  }
+
+  /** The current view's clock (ms): the time-lapse's in a constellation view, the tracking one's otherwise */
+  viewNow(): number {
+    return this.constellation ? this.tlSim : this.simNow();
+  }
+
   /** A constellation's passes over (lat, lng) in the `days` from `from`: those it can image (optical: sun at least
    * MIN_SUN_ELEV_DEG high there), and how many it would make without that cut.
    * Console: `await satelliteTracker.passesOver('edc', 43.60, 1.44, 30)` */
